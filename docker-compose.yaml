@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  ollama:
+    volumes:
+      - ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:latest
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "8080:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=
+    volumes:
+      - open-webui:/app/backend/data
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  notion-connector:
+    build: ./notion-connector
+    container_name: notion-connector
+    environment:
+      - NOTION_API_KEY=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
+      - MODEL_NAME=openhermes
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama: {}
+  open-webui: {}
