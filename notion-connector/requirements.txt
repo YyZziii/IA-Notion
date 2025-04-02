@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 notion-client
 pydantic
 requests
