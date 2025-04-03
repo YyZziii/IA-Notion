@@ -54,6 +54,7 @@ services:
 
   notion-sync:
     build: ./notion-sync
+    image: notion-sync
     container_name: notion-sync
     environment:
       - NOTION_API_KEY=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

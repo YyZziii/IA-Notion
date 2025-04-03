@@ -7,5 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# 🔧 Autorise le passage d'arguments à sync_and_embed.py
-ENTRYPOINT ["python", "sync_and_embed.py"]
+# 🔧 Autorise le passage d'arguments à main.py
+ENTRYPOINT ["python", "main.py"]

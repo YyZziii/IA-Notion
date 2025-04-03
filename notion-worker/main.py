@@ -72,7 +72,7 @@ while True:
         ]
 
         debug(f"📦 Lancement de la commande : {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         debug(f"✅ Synchronisation terminée pour : {database_id}")
 
     except Exception as e:
