@@ -1,9 +1,9 @@
-import uuid
 import os
 from notion_client import Client
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
 from datetime import datetime
+from tqdm import tqdm
 
 # 🔐 Auth
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
@@ -22,7 +22,7 @@ def fetch_database_rows(database_id):
 
 # 🧠 Extraire le texte vectorisable
 def extract_text_and_payload(row):
-    payload = {}
+    payload = {"notion_id": row["id"]}
     text_parts = []
 
     for prop, val in row["properties"].items():
@@ -42,7 +42,7 @@ def extract_text_and_payload(row):
         payload[prop] = value
         text_parts.append(str(value))
 
-    return ", ".join(text_parts), payload
+    return row["id"], ", ".join(text_parts), payload
 
 # 🔁 Traitement d'une base
 def process_database(db):
@@ -56,14 +56,24 @@ def process_database(db):
         print("⚠️ Aucune ligne à traiter.")
         return
 
-    texts, payloads = zip(*(extract_text_and_payload(r) for r in rows))
+    # 🗑️ Obtenir les IDs existants dans Qdrant
+    existing_ids = set()
+    scroll = qdrant.scroll(collection_name=title_clean, with_payload=False)
+    while True:
+        points, next_page = scroll
+        existing_ids.update(p.id for p in points)
+        if next_page is None:
+            break
+        scroll = qdrant.scroll(collection_name=title_clean, with_payload=False, offset=next_page)
+
+    point_ids, texts, payloads = zip(*(extract_text_and_payload(r) for r in rows))
     print(f"🧠 Vectorisation de {len(texts)} éléments...")
 
     embeddings = embedder.encode(list(texts), show_progress_bar=True)
 
     vectors = [
-        models.PointStruct(id=str(uuid.uuid4()), vector=vec.tolist(), payload=payload)
-        for vec, payload in zip(embeddings, payloads)
+        models.PointStruct(id=pid, vector=vec.tolist(), payload=payload)
+        for pid, vec, payload in zip(point_ids, embeddings, payloads)
     ]
 
     if not qdrant.collection_exists(title_clean):
@@ -74,6 +84,13 @@ def process_database(db):
         print(f"🆕 Collection '{title_clean}' créée.")
     else:
         print(f"✏️ Collection '{title_clean}' trouvée. Mise à jour...")
+
+    # 🔄 Supprimer les points qui ne sont plus dans Notion
+    current_ids = set(point_ids)
+    to_delete = list(existing_ids - current_ids)
+    if to_delete:
+        qdrant.delete(collection_name=title_clean, points_selector=models.PointIdsList(points=to_delete))
+        print(f"🗑️ {len(to_delete)} anciens points supprimés.")
 
     qdrant.upsert(collection_name=title_clean, points=vectors)
     print(f"✅ Collection '{title_clean}' mise à jour.")
