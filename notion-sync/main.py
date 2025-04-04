@@ -56,44 +56,48 @@ def process_database(db):
         print("⚠️ Aucune ligne à traiter.")
         return
 
-    # 🗑️ Obtenir les IDs existants dans Qdrant
-    existing_ids = set()
-    scroll = qdrant.scroll(collection_name=title_clean, with_payload=False)
-    while True:
-        points, next_page = scroll
-        existing_ids.update(p.id for p in points)
-        if next_page is None:
-            break
-        scroll = qdrant.scroll(collection_name=title_clean, with_payload=False, offset=next_page)
-
-    point_ids, texts, payloads = zip(*(extract_text_and_payload(r) for r in rows))
-    print(f"🧠 Vectorisation de {len(texts)} éléments...")
-
-    embeddings = embedder.encode(list(texts), show_progress_bar=True)
-
-    vectors = [
-        models.PointStruct(id=pid, vector=vec.tolist(), payload=payload)
-        for pid, vec, payload in zip(point_ids, embeddings, payloads)
-    ]
-
-    if not qdrant.collection_exists(title_clean):
+    # 🗑️ Obtenir les points existants avec payloads si la collection existe
+    existing_payloads = {}
+    if qdrant.collection_exists(title_clean):
+        print(f"✏️ Collection '{title_clean}' trouvée. Mise à jour...")
+        scroll = qdrant.scroll(collection_name=title_clean, with_payload=True)
+        while True:
+            points, next_page = scroll
+            for pt in points:
+                existing_payloads[pt.id] = pt.payload
+            if next_page is None:
+                break
+            scroll = qdrant.scroll(collection_name=title_clean, with_payload=True, offset=next_page)
+    else:
         qdrant.create_collection(
             collection_name=title_clean,
             vectors_config=models.VectorParams(size=384, distance="Cosine")
         )
         print(f"🆕 Collection '{title_clean}' créée.")
-    else:
-        print(f"✏️ Collection '{title_clean}' trouvée. Mise à jour...")
+
+    # 🔍 Comparer les payloads et vectoriser seulement si nécessaire
+    to_upsert = []
+    current_ids = set()
+
+    for row in tqdm(rows, desc="🔍 Comparaison des lignes"):
+        pid, text, payload = extract_text_and_payload(row)
+        current_ids.add(pid)
+
+        if pid not in existing_payloads or existing_payloads[pid] != payload:
+            embedding = embedder.encode(text)
+            to_upsert.append(models.PointStruct(id=pid, vector=embedding.tolist(), payload=payload))
 
     # 🔄 Supprimer les points qui ne sont plus dans Notion
-    current_ids = set(point_ids)
-    to_delete = list(existing_ids - current_ids)
+    to_delete = list(set(existing_payloads.keys()) - current_ids)
     if to_delete:
         qdrant.delete(collection_name=title_clean, points_selector=models.PointIdsList(points=to_delete))
         print(f"🗑️ {len(to_delete)} anciens points supprimés.")
 
-    qdrant.upsert(collection_name=title_clean, points=vectors)
-    print(f"✅ Collection '{title_clean}' mise à jour.")
+    if to_upsert:
+        qdrant.upsert(collection_name=title_clean, points=to_upsert)
+        print(f"✅ {len(to_upsert)} points ajoutés ou mis à jour.")
+    else:
+        print("✅ Aucun changement détecté, pas de vectorisation.")
 
 # 🔧 Entrée principale
 if __name__ == "__main__":
