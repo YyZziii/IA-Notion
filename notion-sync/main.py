@@ -4,27 +4,25 @@ from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
 from datetime import datetime
 from tqdm import tqdm
+from shared.mapping import init_db, save_mapping
 
 # 🔐 Auth
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 notion = Client(auth=NOTION_API_KEY)
-qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
-qdrant = QdrantClient(url=qdrant_url)
+qdrant = QdrantClient(url=os.getenv("QDRANT_URL", "http://qdrant:6333"))
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
-# 📚 Obtenir toutes les bases
+init_db()
+
 def get_all_databases():
     return notion.search(filter={"property": "object", "value": "database"})["results"]
 
-# 📄 Récupérer les lignes d'une base
 def fetch_database_rows(database_id):
     return notion.databases.query(database_id=database_id)["results"]
 
-# 🧠 Extraire le texte vectorisable
 def extract_text_and_payload(row):
     payload = {"notion_id": row["id"]}
     text_parts = []
-
     for prop, val in row["properties"].items():
         if val["type"] == "title":
             value = val["title"][0]["plain_text"] if val["title"] else ""
@@ -38,28 +36,24 @@ def extract_text_and_payload(row):
             value = val["select"]["name"] if val["select"] else ""
         else:
             value = str(val)
-
         payload[prop] = value
         text_parts.append(str(value))
-
     return row["id"], ", ".join(text_parts), payload
 
-# 🔁 Traitement d'une base
 def process_database(db):
     db_id = db["id"]
     title = db["title"][0]["plain_text"] if db["title"] else "sans_nom"
     title_clean = title.strip().lower().replace(" ", "_")
     print(f"\n📥 Traitement de la base : {title_clean}")
+    save_mapping(db_id, title_clean)
 
     rows = fetch_database_rows(db_id)
     if not rows:
         print("⚠️ Aucune ligne à traiter.")
         return
 
-    # 🗑️ Obtenir les points existants avec payloads si la collection existe
     existing_payloads = {}
     if qdrant.collection_exists(title_clean):
-        print(f"✏️ Collection '{title_clean}' trouvée. Mise à jour...")
         scroll = qdrant.scroll(collection_name=title_clean, with_payload=True)
         while True:
             points, next_page = scroll
@@ -73,21 +67,17 @@ def process_database(db):
             collection_name=title_clean,
             vectors_config=models.VectorParams(size=384, distance="Cosine")
         )
-        print(f"🆕 Collection '{title_clean}' créée.")
 
-    # 🔍 Comparer les payloads et vectoriser seulement si nécessaire
     to_upsert = []
     current_ids = set()
 
     for row in tqdm(rows, desc="🔍 Comparaison des lignes"):
         pid, text, payload = extract_text_and_payload(row)
         current_ids.add(pid)
-
         if pid not in existing_payloads or existing_payloads[pid] != payload:
             embedding = embedder.encode(text)
             to_upsert.append(models.PointStruct(id=pid, vector=embedding.tolist(), payload=payload))
 
-    # 🔄 Supprimer les points qui ne sont plus dans Notion
     to_delete = list(set(existing_payloads.keys()) - current_ids)
     if to_delete:
         qdrant.delete(collection_name=title_clean, points_selector=models.PointIdsList(points=to_delete))
@@ -99,7 +89,6 @@ def process_database(db):
     else:
         print("✅ Aucun changement détecté, pas de vectorisation.")
 
-# 🔧 Entrée principale
 if __name__ == "__main__":
     mono_base_id = os.getenv("NOTION_DATABASE_ID")
     if mono_base_id:

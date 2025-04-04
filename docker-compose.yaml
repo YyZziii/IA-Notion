@@ -56,8 +56,11 @@ services:
     build: ./notion-sync
     image: notion-sync
     container_name: notion-sync
+    volumes:
+      - ./shared:/app/shared
     environment:
       - NOTION_API_KEY=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
+      - MAPPING_DB=/app/shared/mapping.db
     depends_on:
       - qdrant
     restart: "no"  # Ne tourne que lorsqu’on le lance avec docker run
@@ -69,10 +72,12 @@ services:
       - "8050:8050"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./shared:/app/shared
     environment:
       - NOTION_API_KEY=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
       - REDIS_URL=redis://redis:6379
       - QUEUE_NAME=notion_events
+      - MAPPING_DB=/app/shared/mapping.db
     depends_on:
       - redis
     restart: unless-stopped
@@ -82,6 +87,7 @@ services:
     container_name: notion-worker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./shared:/app/shared
     environment:
       - NOTION_API_KEY=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
       - REDIS_URL=redis://redis:6379
