@@ -2,10 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY notion-sync/ ./
+COPY shared/ ./shared
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-# 🔧 Autorise le passage d'arguments à main.py
 ENTRYPOINT ["python", "main.py"]

@@ -23,11 +23,14 @@ async def webhook(request: Request):
 
     try:
         event_type = body.get("type")
-        entity = body.get("entity", {})
-        db_id = entity.get("id")
+
+        # ✅ Récupère l’ID de la base (parent)
+        parent = body.get("data", {}).get("parent", {})
+        db_id = parent.get("id")
 
         print(f"🎯 Base ciblée via webhook : {db_id} [{event_type}]")
 
+        # 🔥 Suppression d’une base
         if event_type == "database.deleted":
             collection = get_collection_name(db_id)
             if collection and qdrant.collection_exists(collection):
@@ -36,6 +39,7 @@ async def webhook(request: Request):
                 print(f"🗑️ Collection '{collection}' supprimée suite à la suppression de la base.")
             return {"status": "deleted"}
 
+        # ✅ Push dans Redis
         redis_client.rpush("notion_events", json.dumps({
             "database_id": db_id,
             "event": body

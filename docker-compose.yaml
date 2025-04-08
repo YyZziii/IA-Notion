@@ -53,7 +53,9 @@ services:
     restart: unless-stopped
 
   notion-sync:
-    build: ./notion-sync
+    build:
+      context: .
+      dockerfile: notion-sync/Dockerfile
     image: notion-sync
     container_name: notion-sync
     volumes:

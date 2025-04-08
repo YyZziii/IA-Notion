@@ -10,7 +10,7 @@ from shared.mapping import init_db, save_mapping
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 notion = Client(auth=NOTION_API_KEY)
 qdrant = QdrantClient(url=os.getenv("QDRANT_URL", "http://qdrant:6333"))
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+embedder = SentenceTransformer("thenlper/gte-small")
 
 init_db()
 
