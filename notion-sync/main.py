@@ -4,15 +4,12 @@ from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
 from datetime import datetime
 from tqdm import tqdm
-from shared.mapping import init_db, save_mapping
 
 # 🔐 Auth
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 notion = Client(auth=NOTION_API_KEY)
 qdrant = QdrantClient(url=os.getenv("QDRANT_URL", "http://qdrant:6333"))
 embedder = SentenceTransformer("thenlper/gte-small")
-
-init_db()
 
 def get_all_databases():
     return notion.search(filter={"property": "object", "value": "database"})["results"]
@@ -45,7 +42,6 @@ def process_database(db):
     title = db["title"][0]["plain_text"] if db["title"] else "sans_nom"
     title_clean = title.strip().lower().replace(" ", "_")
     print(f"\n📥 Traitement de la base : {title_clean}")
-    save_mapping(db_id, title_clean)
 
     rows = fetch_database_rows(db_id)
     if not rows:

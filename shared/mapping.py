@@ -10,7 +10,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS notion_mappings (
             notion_id TEXT PRIMARY KEY,
-            collection_name TEXT NOT NULL
+            collection_name TEXT
         )
     """)
     conn.commit()
