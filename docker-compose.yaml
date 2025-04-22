@@ -107,6 +107,14 @@ services:
       - notion-webhook
     restart: unless-stopped
 
+  api-routing:
+    build: ./api-routing
+    container_name: api-routing
+    ports:
+      - "8070:8070"
+    restart: unless-stopped
+
+
 volumes:
   ollama: {}
   open-webui: {}
