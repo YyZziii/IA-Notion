@@ -1,10 +1,12 @@
 from fastapi import APIRouter
-from schemas import QueryRequest, RoutingResponse
 from llm_router import route_question
+from schemas import QuestionRequest, QuestionResponse
 
 router = APIRouter()
 
-@router.post("/route", response_model=RoutingResponse)
-async def route_query(request: QueryRequest):
-    domain = route_question(request.question)
-    return RoutingResponse(domain=domain)
+@router.post("/route", response_model=QuestionResponse)
+async def route_question_endpoint(request: QuestionRequest):
+    matched_collection = await route_question(request.question)
+    if matched_collection:
+        return QuestionResponse(collection=matched_collection)
+    return QuestionResponse(collection="aucun")

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
-class QueryRequest(BaseModel):
+class QuestionRequest(BaseModel):
     question: str
 
-class RoutingResponse(BaseModel):
-    domain: str
+class QuestionResponse(BaseModel):
+    collection: str

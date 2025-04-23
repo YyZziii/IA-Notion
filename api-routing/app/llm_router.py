@@ -1,54 +1,53 @@
 import requests
-import json
 
-# 🔗 URL de Qdrant et Ollama dans le réseau Docker
-QDRANT_URL = "http://qdrant:6333/collections"
-OLLAMA_URL = "http://ollama:11434/api/generate"
-OLLAMA_MODEL = "openhermes"  # ou celui que tu utilises dans Ollama
+OLLAMA_HOST = "http://ollama:11434"
+QDRANT_HOST = "http://qdrant:6333"
+MODEL_NAME = "mistral:instruct"
 
-def get_collections():
-    """Récupère les collections Qdrant = domaines disponibles"""
+def get_qdrant_collections():
+    url = f"{QDRANT_HOST}/collections"
     try:
-        res = requests.get(QDRANT_URL)
-        res.raise_for_status()
-        return [c["name"] for c in res.json()["result"]["collections"]]
+        response = requests.get(url)
+        response.raise_for_status()
+        collections = response.json().get("result", {}).get("collections", [])
+        return [c["name"] for c in collections]
     except Exception as e:
-        print(f"❌ Erreur Qdrant : {e}")
+        print(f"Erreur lors de la récupération des collections : {e}")
         return []
 
-def route_question(question: str) -> str:
-    """Envoie un prompt à Ollama pour classer la question dans un domaine"""
-    collections = get_collections()
-    if not collections:
-        return "aucun_domaine"
-
-    domains_str = ", ".join([f'"{c}"' for c in collections])
-
+def get_collection_from_question(question: str, collections: list[str]) -> str:
+    domain_list = ", ".join(collections)
     prompt = f"""
-Tu es un routeur de questions. Ton rôle est de classer la question de l'utilisateur dans un des domaines suivants : {domains_str}
+Tu es un système de routage d'information. Ta tâche est de déterminer, à partir d'une question utilisateur, à quelle base de données (appelée *collection*) elle correspond.
 
-Réponds uniquement par le nom exact du domaine approprié.
+Voici la liste des collections disponibles : {domain_list}
 
-Question : "{question}"
+Réponds uniquement avec le nom exact de la collection la plus pertinente.
+Si aucune ne correspond, réponds uniquement par : aucun
 
-Domaine :
+Question : {question}
+Collection :
 """
 
     try:
         response = requests.post(
-            OLLAMA_URL,
+            f"{OLLAMA_HOST}/api/generate",
             json={
-                "model": OLLAMA_MODEL,
+                "model": MODEL_NAME,
                 "prompt": prompt,
                 "stream": False,
-                "temperature": 0,
-                "max_tokens": 20
-            },
-            timeout=20
+                "temperature": 0
+            }
         )
         response.raise_for_status()
-        data = response.json()
-        return data.get("response", "").strip().split("\n")[0]
+        return response.json()["response"].strip()
     except Exception as e:
-        print(f"❌ Erreur Ollama : {e}")
-        return "erreur_ollama"
+        print(f"Erreur lors de l'appel à Ollama : {e}")
+        return ""
+
+async def route_question(question: str) -> str:
+    collections = get_qdrant_collections()
+    matched_collection = get_collection_from_question(question, collections)
+    if matched_collection in collections:
+        return matched_collection
+    return "aucun"
