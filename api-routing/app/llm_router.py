@@ -18,15 +18,21 @@ def get_qdrant_collections():
 def get_collection_from_question(question: str, collections: list[str]) -> str:
     domain_list = ", ".join(collections)
     prompt = f"""
-Tu es un système de routage d'information. Ta tâche est de déterminer, à partir d'une question utilisateur, à quelle base de données (appelée *collection*) elle correspond.
+Tu es un système de routage d'information.
 
-Voici la liste des collections disponibles : {domain_list}
+Ta tâche est de déterminer, à partir d'une question utilisateur, à quelle ou quelles collections de données (appelées *collections*) cette question fait référence.
 
-Réponds uniquement avec le nom exact de la collection la plus pertinente.
+Voici la liste des collections disponibles :  
+{domain_list}
+
+Analyse bien le contenu de la question.  
+Il est possible qu'elle corresponde à plusieurs collections à la fois.
+
+Réponds uniquement avec le ou les noms exacts des collections pertinentes, séparés par des virgules (ex. : "revenus_(mensuels), dépenses_(mensuelles)").  
 Si aucune ne correspond, réponds uniquement par : aucun
 
-Question : {question}
-Collection :
+Question : {question}  
+Collections :
 """
 
     try:

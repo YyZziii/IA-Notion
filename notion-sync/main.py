@@ -9,7 +9,7 @@ from tqdm import tqdm
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 notion = Client(auth=NOTION_API_KEY)
 qdrant = QdrantClient(url=os.getenv("QDRANT_URL", "http://qdrant:6333"))
-embedder = SentenceTransformer("thenlper/gte-small")
+embedder = SentenceTransformer("intfloat/multilingual-e5-small")
 
 def get_all_databases():
     return notion.search(filter={"property": "object", "value": "database"})["results"]

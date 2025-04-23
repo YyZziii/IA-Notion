@@ -5,3 +5,4 @@ class QuestionRequest(BaseModel):
 
 class QuestionResponse(BaseModel):
     collection: str
+    answer: str
