@@ -92,7 +92,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - QUEUE_NAME=notion_events
       - SYNC_IMAGE=notion-sync
-      - DOCKER_NETWORK=open-webui-0520_default
+      - DOCKER_NETWORK=ia-notion_default
     depends_on:
       - redis
       - qdrant

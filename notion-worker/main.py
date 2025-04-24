@@ -35,7 +35,7 @@ else:
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 QUEUE_NAME = os.getenv("QUEUE_NAME", "notion_events")
 SYNC_IMAGE = os.getenv("SYNC_IMAGE", "notion-sync")
-DOCKER_NETWORK = os.getenv("DOCKER_NETWORK", "open-webui-0520_default")
+DOCKER_NETWORK = os.getenv("DOCKER_NETWORK", "ia-notion_default")
 
 # Connexion Redis
 try:
